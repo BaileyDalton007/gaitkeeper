@@ -3,4 +3,10 @@ channels:
   - defaults
 dependencies:
   - python=3.10
+  - transformers
+  - pillow
+  - matplotlib
+  - ipywidgets
+  - pytorch-cuda=11.8
   - pytorch
+  - numpy[version='<2']
