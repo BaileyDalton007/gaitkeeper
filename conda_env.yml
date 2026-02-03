@@ -2,11 +2,11 @@ name: gaitkeeper
 channels:
   - defaults
 dependencies:
+  - ipywidgets
+  - numpy[version='<2']
   - python=3.10
+  - matplotlib
+  - pytorch
   - transformers
   - pillow
-  - matplotlib
-  - ipywidgets
-  - pytorch-cuda=11.8
-  - pytorch
-  - numpy[version='<2']
+prefix: /Applications/anaconda3/envs/gaitkeeper
