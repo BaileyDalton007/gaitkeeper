@@ -134,3 +134,83 @@ def get_single_mask_from_video(video, target_resolution=1024, batch_size=1, targ
     mask_tensor = torch.stack(mask_list)  # bool tensor
     
     return mask_tensor
+
+def load_segformer_model(
+    model_name="mattmdjaga/segformer_b2_clothes",
+    device=None
+):
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    processor = SegformerImageProcessor.from_pretrained(model_name)
+    model = AutoModelForSemanticSegmentation.from_pretrained(model_name)
+    model.to(device)
+    model.eval()
+
+    return processor, model, device
+
+def write_mask_overlay_video(
+    input_video,
+    output_video,
+    mask_tensor,
+    mode="color",                 # "color" or "pattern"
+    mask_color=(0, 255, 0),        # used in color mode
+    alpha=0.35,                   # used in color mode
+    overlay_img_path=None          # used in pattern mode
+):
+    cap = cv2.VideoCapture(input_video)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    ret, first_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Cannot read video")
+
+    h, w = first_frame.shape[:2]
+
+    writer = cv2.VideoWriter(
+        output_video,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (w, h)
+    )
+
+    # Load overlay image if needed
+    if mode == "pattern":
+        if overlay_img_path is None:
+            raise ValueError("overlay_img_path must be provided for pattern mode")
+        overlay_img = cv2.imread(overlay_img_path)
+        overlay_img = cv2.resize(overlay_img, (w, h))
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    frame_idx = 0
+
+    while cap.isOpened() and frame_idx < mask_tensor.shape[0]:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        mask = mask_tensor[frame_idx].numpy().astype(np.uint8)
+        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        if mode == "color":
+            mask_255 = mask * 255
+            mask_bgr = np.zeros_like(frame)
+            mask_bgr[mask_255 > 0] = mask_color
+            output_frame = cv2.addWeighted(
+                frame, 1 - alpha,
+                mask_bgr, alpha,
+                0
+            )
+
+        elif mode == "pattern":
+            output_frame = frame.copy()
+            output_frame[mask.astype(bool)] = overlay_img[mask.astype(bool)]
+
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        writer.write(output_frame)
+        frame_idx += 1
+
+    cap.release()
+    writer.release()
