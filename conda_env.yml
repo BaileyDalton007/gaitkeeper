@@ -1,6 +1,8 @@
 name: gaitkeeper
 channels:
   - defaults
+  - nvidia
+  - pytorch
 dependencies:
   - python=3.10
   - transformers
