@@ -2,6 +2,7 @@ import torch.nn as nn
 import cv2
 import torch
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
+import numpy as np
 
 
 def get_single_mask_from_video(video, target_resolution=1024, batch_size=1, target_label=4, device=None, processor=None, model=None):
@@ -205,6 +206,112 @@ def write_mask_overlay_video(
         elif mode == "pattern":
             output_frame = frame.copy()
             output_frame[mask.astype(bool)] = overlay_img[mask.astype(bool)]
+
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        writer.write(output_frame)
+        frame_idx += 1
+
+    cap.release()
+    writer.release()
+
+
+def write_mask_overlay_video1(
+    input_video,
+    output_video,
+    mask_tensor,
+    mode="color",
+    mask_color=(0, 255, 0),
+    alpha=0.35,
+    overlay_img_path=None,
+    padding=10  # extra pixels around detected region
+):
+    import cv2
+    import numpy as np
+
+    cap = cv2.VideoCapture(input_video)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    ret, first_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Cannot read video")
+
+    h, w = first_frame.shape[:2]
+
+    writer = cv2.VideoWriter(
+        output_video,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (w, h)
+    )
+
+    # Load overlay image once
+    if mode == "pattern":
+        if overlay_img_path is None:
+            raise ValueError("overlay_img_path must be provided for pattern mode")
+        overlay_img_original = cv2.imread(overlay_img_path)
+        if overlay_img_original is None:
+            raise RuntimeError("Failed to load overlay image")
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    frame_idx = 0
+
+    while cap.isOpened() and frame_idx < mask_tensor.shape[0]:
+
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        mask = mask_tensor[frame_idx].numpy().astype(np.uint8)
+        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        if mode == "color":
+            mask_255 = mask * 255
+            mask_bgr = np.zeros_like(frame)
+            mask_bgr[mask_255 > 0] = mask_color
+
+            output_frame = cv2.addWeighted(
+                frame, 1 - alpha,
+                mask_bgr, alpha,
+                0
+            )
+
+        elif mode == "pattern":
+
+            ys, xs = np.where(mask > 0)
+
+            # If no mask pixels found, just write original frame
+            if len(xs) == 0 or len(ys) == 0:
+                writer.write(frame)
+                frame_idx += 1
+                continue
+
+            # Bounding box
+            x_min, x_max = xs.min(), xs.max()
+            y_min, y_max = ys.min(), ys.max()
+
+            # Add padding safely
+            x_min = max(0, x_min - padding)
+            x_max = min(w, x_max + padding)
+            y_min = max(0, y_min - padding)
+            y_max = min(h, y_max + padding)
+
+            region_w = x_max - x_min
+            region_h = y_max - y_min
+
+            # Resize overlay to region size
+            resized_overlay = cv2.resize(
+                overlay_img_original,
+                (region_w, region_h)
+            )
+
+            region_mask = mask[y_min:y_max, x_min:x_max].astype(bool)
+
+            output_frame = frame.copy()
+
+            output_frame[y_min:y_max, x_min:x_max][region_mask] = \
+                resized_overlay[region_mask]
 
         else:
             raise ValueError(f"Unknown mode: {mode}")
