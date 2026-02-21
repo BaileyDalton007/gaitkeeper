@@ -227,8 +227,6 @@ def write_mask_overlay_video1(
     overlay_img_path=None,
     padding=10  # extra pixels around detected region
 ):
-    import cv2
-    import numpy as np
 
     cap = cv2.VideoCapture(input_video)
     fps = cap.get(cv2.CAP_PROP_FPS)
