@@ -37,3 +37,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Local Claude Code settings
+.claude/
