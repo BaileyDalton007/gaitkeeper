@@ -60,7 +60,7 @@ def get_single_mask_from_video(video, target_resolution=1024, batch_size=1, targ
     model.eval()
 
     # Load input video as an opencv object
-    cap = cv2.VideoCapture(video)
+    cap = cv2.VideoCapture(str(video))
 
     # Buffers for storing frames and corresponding masks
     rgb_frames = []
@@ -159,7 +159,7 @@ def write_mask_overlay_video(
     alpha=0.35,                   # used in color mode
     overlay_img_path=None          # used in pattern mode
 ):
-    cap = cv2.VideoCapture(input_video)
+    cap = cv2.VideoCapture(str(input_video))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     ret, first_frame = cap.read()
@@ -169,7 +169,7 @@ def write_mask_overlay_video(
     h, w = first_frame.shape[:2]
 
     writer = cv2.VideoWriter(
-        output_video,
+        str(output_video),
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
         (w, h)
@@ -179,7 +179,7 @@ def write_mask_overlay_video(
     if mode == "pattern":
         if overlay_img_path is None:
             raise ValueError("overlay_img_path must be provided for pattern mode")
-        overlay_img = cv2.imread(overlay_img_path)
+        overlay_img = cv2.imread(str(overlay_img_path))
         overlay_img = cv2.resize(overlay_img, (w, h))
 
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -228,7 +228,7 @@ def write_mask_overlay_video1(
     padding=10  # extra pixels around detected region
 ):
 
-    cap = cv2.VideoCapture(input_video)
+    cap = cv2.VideoCapture(str(input_video))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     ret, first_frame = cap.read()
@@ -238,7 +238,7 @@ def write_mask_overlay_video1(
     h, w = first_frame.shape[:2]
 
     writer = cv2.VideoWriter(
-        output_video,
+        str(output_video),
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
         (w, h)
@@ -248,7 +248,7 @@ def write_mask_overlay_video1(
     if mode == "pattern":
         if overlay_img_path is None:
             raise ValueError("overlay_img_path must be provided for pattern mode")
-        overlay_img_original = cv2.imread(overlay_img_path)
+        overlay_img_original = cv2.imread(str(overlay_img_path))
         if overlay_img_original is None:
             raise RuntimeError("Failed to load overlay image")
 
@@ -371,7 +371,7 @@ def write_mask_overlay_video2(
     jitter_params=None
 ):
 
-    cap = cv2.VideoCapture(input_video)
+    cap = cv2.VideoCapture(str(input_video))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     ret, first_frame = cap.read()
@@ -381,7 +381,7 @@ def write_mask_overlay_video2(
     h, w = first_frame.shape[:2]
 
     writer = cv2.VideoWriter(
-        output_video,
+        str(output_video),
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
         (w, h)
@@ -406,7 +406,7 @@ def write_mask_overlay_video2(
     if mode == "pattern":
         if overlay_img_path is None:
             raise ValueError("overlay_img_path must be provided for pattern mode")
-        overlay_img_original = cv2.imread(overlay_img_path)
+        overlay_img_original = cv2.imread(str(overlay_img_path))
         if overlay_img_original is None:
             raise RuntimeError("Failed to load overlay image")
 
