@@ -465,7 +465,7 @@ def write_mask_overlay_video2(
             )
 
             # JITTER SCHEDULING
-            if frame_idx >= jitter_end_frame:
+            if frame_idx % jitter_every == 0:
                 if random_jitter:
                     active_jitter = np.random.choice(jitter_types)
                 else:
