@@ -3,6 +3,7 @@ import cv2
 import torch
 from transformers import SegformerImageProcessor, AutoModelForSemanticSegmentation
 import numpy as np
+from pathlib import Path
 
 
 def get_single_mask_from_video(video, target_resolution=1024, batch_size=1, target_label=4, device=None, processor=None, model=None):
@@ -136,6 +137,44 @@ def get_single_mask_from_video(video, target_resolution=1024, batch_size=1, targ
     
     return mask_tensor
 
+def get_single_mask_from_image(image, target_resolution=1024, target_label=4, device=None, processor=None, model=None):
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    model_name = "mattmdjaga/segformer_b2_clothes"
+    if processor is None:
+        processor = SegformerImageProcessor.from_pretrained(model_name)
+    if model is None:
+        model = AutoModelForSemanticSegmentation.from_pretrained(model_name).to(device)
+
+    model.eval()
+
+    # Accept a file path or a numpy array
+    if isinstance(image, (str, Path)):
+        image = cv2.imread(str(image))
+    
+    frame = cv2.resize(image, (target_resolution, target_resolution), interpolation=cv2.INTER_LINEAR)
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    inputs = processor(images=[rgb], return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+    logits = nn.functional.interpolate(
+        logits,
+        size=(target_resolution, target_resolution),
+        mode="bilinear",
+        align_corners=False
+    )
+
+    pred_classes = logits.argmax(dim=1)        # [1, H, W]
+    mask = (pred_classes == target_label)[0]   # [H, W]
+
+    return mask.cpu()
+
 def load_segformer_model(
     model_name="mattmdjaga/segformer_b2_clothes",
     device=None
@@ -216,6 +255,27 @@ def write_mask_overlay_video(
     cap.release()
     writer.release()
 
+def overlay_patch_on_image(image, mask, patch):
+    h, w = image.shape[:2]
+
+    # Resize mask to image size
+    mask_full = cv2.resize(mask.numpy().astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST).astype(bool)
+
+    # Compute bounding box from the mask itself
+    rows = np.any(mask_full, axis=1)
+    cols = np.any(mask_full, axis=0)
+    y1, y2 = np.where(rows)[0][[0, -1]]
+    x1, x2 = np.where(cols)[0][[0, -1]]
+    bw, bh = x2 - x1, y2 - y1
+
+    # Resize patch to mask bounding box — same as paste_patch
+    patch_resized = cv2.resize(patch, (bw, bh))
+
+    mask_box = mask_full[y1:y2, x1:x2]
+
+    output = image.copy()
+    output[y1:y2, x1:x2][mask_box] = patch_resized[mask_box]
+    return output
 
 def write_mask_overlay_video1(
     input_video,
