@@ -1,6 +1,7 @@
 test.py
 test.ipynb
 *.pt
+*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
